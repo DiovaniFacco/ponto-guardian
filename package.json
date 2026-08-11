@@ -1,6 +1,6 @@
 {
   "name": "ponto-guardian",
-  "version": "0.1.2",
+  "version": "3.0.0",
   "description": "Monitor de jornada de trabalho integrado ao Secullum",
   "private": true,
   "main": "dist-electron/electron/main.js",
