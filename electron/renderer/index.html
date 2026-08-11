@@ -239,6 +239,61 @@
     .clock-btn.hidden {
       display: none;
     }
+
+    .confirm-box {
+      -webkit-app-region: no-drag;
+      margin-bottom: 8px;
+    }
+
+    .confirm-box.hidden {
+      display: none;
+    }
+
+    .confirm-msg {
+      font-size: 10px;
+      color: #facc15;
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .confirm-btn {
+      flex: 1;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    .confirm-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .confirm-btn.danger {
+      background: rgba(248, 113, 113, 0.15);
+      color: #fca5a5;
+    }
+
+    .confirm-btn.danger:hover:not(:disabled) {
+      background: rgba(248, 113, 113, 0.28);
+    }
+
+    .confirm-btn.neutral {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .confirm-btn.neutral:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.14);
+    }
   </style>
 </head>
 <body>
@@ -275,6 +330,14 @@
     </div>
 
     <button class="clock-btn" id="clockBtn">bater ponto</button>
+
+    <div class="confirm-box hidden" id="confirmBox">
+      <div class="confirm-msg" id="confirmMsg"></div>
+      <div class="confirm-actions">
+        <button class="confirm-btn danger" id="confirmPunchBtn">bater mesmo assim</button>
+        <button class="confirm-btn neutral" id="cancelPunchBtn">cancelar</button>
+      </div>
+    </div>
 
     <div class="footer">
       <span>
@@ -317,7 +380,26 @@
         Boolean((settings.fixedAddress ?? '').trim());
     }
 
+    let pendingPosition = null;
+    let pendingCodes = [];
+
+    function showConfirmBox(warnings, position) {
+      pendingPosition = position;
+      pendingCodes = warnings.map((w) => w.code);
+      $('confirmMsg').textContent = warnings.map((w) => w.message).join(' ');
+      $('clockBtn').classList.add('hidden');
+      $('confirmBox').classList.remove('hidden');
+    }
+
+    function hideConfirmBox() {
+      pendingPosition = null;
+      pendingCodes = [];
+      $('confirmBox').classList.add('hidden');
+    }
+
     async function syncClockButtonState() {
+      // enquanto a confirmação CLT está aberta, o botão fica escondido
+      if (!$('confirmBox').classList.contains('hidden')) return;
       const settings = await window.ponto.getSettings();
       const enabled = settings.enableWidgetClockIn ?? false;
       const hasDeviceId = Boolean((settings.identificacaoDispositivo ?? '').trim());
@@ -344,6 +426,16 @@
       return { latitude: 0, longitude: 0, accuracy: 0 };
     }
 
+    async function doClockIn(position, confirmedCodes) {
+      const resp = await window.ponto.clockIn(position, confirmedCodes);
+      if (resp && resp.needsConfirmation) {
+        showConfirmBox(resp.warnings, position);
+        return;
+      }
+      hideConfirmBox();
+      setFlashMessage('ponto registrado');
+    }
+
     $('clockBtn').addEventListener('click', async () => {
       const button = $('clockBtn');
       button.disabled = true;
@@ -353,14 +445,37 @@
       try {
         const position = await getCurrentPosition();
         button.textContent = 'batendo...';
-        await window.ponto.clockIn(position);
-        setFlashMessage('ponto registrado');
+        await doClockIn(position);
       } catch (error) {
         setFlashMessage(error.message ?? 'erro ao preparar batida');
       } finally {
         button.textContent = 'bater ponto';
         await syncClockButtonState();
       }
+    });
+
+    $('confirmPunchBtn').addEventListener('click', async () => {
+      if (!pendingPosition) return;
+      $('confirmPunchBtn').disabled = true;
+      $('cancelPunchBtn').disabled = true;
+      $('confirmPunchBtn').textContent = 'batendo...';
+
+      try {
+        await doClockIn(pendingPosition, pendingCodes);
+      } catch (error) {
+        setFlashMessage(error.message ?? 'erro ao registrar batida');
+      } finally {
+        $('confirmPunchBtn').disabled = false;
+        $('cancelPunchBtn').disabled = false;
+        $('confirmPunchBtn').textContent = 'bater mesmo assim';
+        await syncClockButtonState();
+      }
+    });
+
+    $('cancelPunchBtn').addEventListener('click', () => {
+      hideConfirmBox();
+      setFlashMessage('batida cancelada');
+      syncClockButtonState();
     });
 
     syncClockButtonState();

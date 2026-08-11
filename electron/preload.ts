@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('ponto', {
   captureBrowserPosition: () => ipcRenderer.invoke('capture-browser-position'),
   getSystemPosition: () => ipcRenderer.invoke('get-system-position'),
   getApproximatePosition: () => ipcRenderer.invoke('get-approximate-position'),
-  clockIn: (position: unknown) => ipcRenderer.invoke('clock-in', position),
+  clockIn: (position: unknown, confirmedCodes?: string[]) => ipcRenderer.invoke('clock-in', position, confirmedCodes),
   saveSettings: (s: unknown) => ipcRenderer.invoke('save-settings', s),
   closeSettings: () => ipcRenderer.send('close-settings'),
   toggleAlwaysOnTop: () => ipcRenderer.invoke('toggle-always-on-top'),

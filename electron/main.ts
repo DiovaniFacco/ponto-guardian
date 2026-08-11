@@ -9,6 +9,7 @@ import { SyncService } from '../src/services/sync.service.js';
 import { getPunchesForDate } from '../src/db/database.js';
 import { buildSummary, formatHHMM, formatMinutes, parseHHMM } from '../src/services/workday.service.js';
 import { calculateCltScenarios, MAX_CONTINUOUS_MINUTES, MAX_DAILY_MINUTES, WINDOW_END_MINUTES } from '../src/services/clt-scenarios.service.js';
+import { getClockInWarnings, ClockInWarningCode } from '../src/services/clock-in-guard.service.js';
 import { getSettings, saveSettings, getDailyMinutes, settingsExist } from '../src/config/settings.js';
 import { Punch } from '../src/models/punch.model.js';
 
@@ -655,6 +656,11 @@ function createTray(): void {
   });
 }
 
+function getYesterdayLastExit(): string | null {
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  return [...getPunchesForDate(yesterday)].reverse().find((p) => p.type === 'EXIT')?.time ?? null;
+}
+
 // IPC handlers
 ipcMain.handle('get-summary', () => getSummaryPayload());
 
@@ -663,8 +669,7 @@ ipcMain.handle('get-settings', () => getSettings());
 ipcMain.handle('get-clt-scenarios', () => {
   const date = getTodayKey();
   const punches = getPunchesForDate(date);
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const yesterdayLastExit = [...getPunchesForDate(yesterday)].reverse().find((p) => p.type === 'EXIT')?.time ?? null;
+  const yesterdayLastExit = getYesterdayLastExit();
   const dailyMinutes = getDailyMinutes();
   return {
     dailyMinutes,
@@ -688,19 +693,29 @@ ipcMain.handle('capture-browser-position', () => capturePositionFromBrowser());
 
 ipcMain.handle('get-approximate-position', () => getApproximatePositionByIp());
 
-ipcMain.handle('clock-in', async (_e, position: { latitude: number; longitude: number; accuracy: number }) => {
+ipcMain.handle('clock-in', async (_e, position: { latitude: number; longitude: number; accuracy: number }, confirmedCodes?: ClockInWarningCode[]) => {
   if (!currentSession) {
     throw new Error('Sessão Secullum não está ativa.');
   }
 
   assertClockInAllowed();
+
+  // Violações CLT (interjornada, almoço curto) exigem confirmação explícita
+  // antes de registrar a batida.
+  const warnings = getClockInWarnings(getPunchesForDate(getTodayKey()), getYesterdayLastExit());
+  const confirmed = new Set(confirmedCodes ?? []);
+  const pending = warnings.filter((w) => !confirmed.has(w.code));
+  if (pending.length > 0) {
+    return { needsConfirmation: true, warnings: pending };
+  }
+
   const metadata = await getClockInMetadata(currentSession);
   assertSupportedClockIn(metadata);
   const payload = await buildClockInPayload(position);
   const result = await createClockIn(currentSession, payload, { dryRun: false });
   pushUpdate();
 
-  return result;
+  return { needsConfirmation: false, result };
 });
 
 ipcMain.handle('set-autostart', (_e, enabled: boolean) => {
