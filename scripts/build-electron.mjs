@@ -38,5 +38,9 @@ copyFileSync(
   'electron/renderer/settings.html',
   `${outdir}/electron/renderer/settings.html`,
 );
+copyFileSync(
+  'electron/renderer/simulation.html',
+  `${outdir}/electron/renderer/simulation.html`,
+);
 
 console.log('Build concluído em', outdir);

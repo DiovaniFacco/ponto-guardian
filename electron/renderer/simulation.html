@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulação de jornada - Ponto Guardian</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f14;
+      color: #e2e2e8;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h1 span { color: rgba(255,255,255,0.3); font-weight: 400; }
+
+    .updated {
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+      margin-bottom: 16px;
+    }
+
+    .section {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 12px;
+    }
+
+    .big-time {
+      font-size: 28px;
+      font-weight: 700;
+      color: #4ade80;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .big-time.accent { color: #818cf8; }
+    .big-time.warning { color: #facc15; }
+
+    .detail {
+      font-size: 12px;
+      color: #c4c4cc;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
+    .detail .muted { color: rgba(255,255,255,0.35); }
+
+    .sub-block {
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+
+    .sub-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #c7d2fe;
+      margin-bottom: 6px;
+    }
+
+    .timeline { margin-top: 6px; }
+
+    .timeline-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #c4c4cc;
+      padding: 2px 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timeline-row .t { color: #fff; font-weight: 600; }
+
+    .violations {
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+
+    .violations-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #f87171;
+      margin-bottom: 8px;
+    }
+
+    .violations ul { list-style: none; }
+
+    .violations li {
+      font-size: 12px;
+      color: #fca5a5;
+      padding: 2px 0;
+      line-height: 1.5;
+    }
+
+    .premise {
+      background: rgba(250,204,21,0.08);
+      border: 1px solid rgba(250,204,21,0.25);
+      border-radius: 10px;
+      padding: 10px 16px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      color: #fde047;
+    }
+
+    .empty {
+      text-align: center;
+      color: rgba(255,255,255,0.35);
+      font-size: 13px;
+      padding: 40px 0;
+      line-height: 1.6;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Simulação de jornada <span>Ponto Guardian</span></h1>
+  <div class="updated" id="updated"></div>
+
+  <div class="violations hidden" id="violationsBox">
+    <div class="violations-title">Atenção — regras violadas hoje</div>
+    <ul id="violationsList"></ul>
+  </div>
+
+  <div class="premise hidden" id="premise"></div>
+
+  <div id="content"></div>
+
+  <div class="empty hidden" id="emptyState">Bata a entrada para ver a simulação do seu dia.</div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function formatMinutes(minutes) {
+      const abs = Math.abs(minutes);
+      const h = Math.floor(abs / 60);
+      const m = abs % 60;
+      return `${h}h${m.toString().padStart(2, '0')}`;
+    }
+
+    function render(data) {
+      $('updated').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+
+      const violationsBox = $('violationsBox');
+      if (data.violations && data.violations.length > 0) {
+        violationsBox.classList.remove('hidden');
+        $('violationsList').innerHTML = data.violations.map((v) => `<li>• ${v}</li>`).join('');
+      } else {
+        violationsBox.classList.add('hidden');
+      }
+
+      const premise = $('premise');
+      if (data.assumedReturn) {
+        premise.classList.remove('hidden');
+        premise.textContent = `Premissa: você está em intervalo. Cenários calculados com retorno às ${data.assumedReturn}.`;
+      } else {
+        premise.classList.add('hidden');
+      }
+
+      if (!data.hasPunches) {
+        $('content').innerHTML = '';
+        $('emptyState').classList.remove('hidden');
+        return;
+      }
+      $('emptyState').classList.add('hidden');
+
+      if (!data.exitRegular && !data.exitTwoPeriods) {
+        $('content').innerHTML = '<div class="empty">Jornada do dia já concluída nos 3 períodos permitidos.</div>';
+        return;
+      }
+
+      const dailyHours = (data.dailyMinutes / 60).toLocaleString('pt-BR');
+      let html = '';
+
+      // 1. Saída com carga horária normal
+      html += '<div class="section">';
+      html += `<div class="section-title">1. Saída com carga horária de ${dailyHours}h</div>`;
+      if (data.exitRegular) {
+        html += `<div class="big-time">${data.exitRegular.time}</div>`;
+        html += `<div class="detail">Cálculo: faltam ${formatMinutes(data.exitRegular.remainingMinutes)} de trabalho.`;
+        if (data.exitRegular.needsBreak) {
+          html += `<br><span class="muted">Inclui ${formatMinutes(data.exitRegular.breakMinutes)} de intervalo obrigatório (limite de 6h corridas por período).</span>`;
+        }
+        if (data.exitRegular.exceedsWindow) {
+          html += '<br><span class="muted">Ultrapassa a janela das 22:00.</span>';
+        }
+        html += '</div>';
+      } else {
+        html += '<div class="detail">Carga horária já concluída ou impossível de completar hoje dentro das regras.</div>';
+      }
+      html += '</div>';
+
+      // 2. Saída com horas extras
+      if (data.exitTwoPeriods) {
+        html += '<div class="section">';
+        html += '<div class="section-title">2. Saída considerando horas extras</div>';
+
+        html += '<div class="sub-title">Dentro de 2 períodos (regra das 6h corridas)</div>';
+        html += `<div class="big-time accent">${data.exitTwoPeriods.time}</div>`;
+        html += `<div class="detail">Total da jornada: ${formatMinutes(data.exitTwoPeriods.totalMinutes)}.`;
+        if (data.exitTwoPeriods.limitedBy === 'cap') {
+          html += '<br><span class="muted">Atinge o teto de 10h48 sem precisar de 3º período.</span>';
+        } else {
+          html += '<br><span class="muted">Limite de trabalho contínuo no período atual sem nova pausa.</span>';
+        }
+        if (data.exitTwoPeriods.exceedsWindow) {
+          html += '<br><span class="muted">Ultrapassa a janela das 22:00 — veja o máximo aproveitamento abaixo.</span>';
+        }
+        html += '</div>';
+
+        if (data.exitThreePeriods) {
+          html += '<div class="sub-block">';
+          html += '<div class="sub-title">Com 3º período (teto de 10h48)</div>';
+          html += '<div class="detail muted">Como o teto exige mais de 6h corridas no período atual, é necessário um intervalo extra de no mínimo 15 minutos.</div>';
+          html += '<div class="timeline">';
+          html += `<div class="timeline-row"><span>Saída do período atual (6h corridas)</span><span class="t">${data.exitThreePeriods.secondPeriodEnd}</span></div>`;
+          html += `<div class="timeline-row"><span>Intervalo extra (15 min)</span><span class="t">${data.exitThreePeriods.secondPeriodEnd} às ${data.exitThreePeriods.breakEnd}</span></div>`;
+          html += `<div class="timeline-row"><span>Entrada no 3º período</span><span class="t">${data.exitThreePeriods.breakEnd}</span></div>`;
+          html += `<div class="timeline-row"><span>Saída final</span><span class="t">${data.exitThreePeriods.finalExit}</span></div>`;
+          html += '</div>';
+          html += `<div class="detail">Total da jornada: ${formatMinutes(data.exitThreePeriods.totalMinutes)}.`;
+          if (data.exitThreePeriods.exceedsWindow) {
+            html += '<br><span class="muted">Esse horário ultrapassa a janela das 22:00 — veja o máximo aproveitamento abaixo.</span>';
+          }
+          html += '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+
+      // 3. Máximo aproveitamento
+      if (data.maxExit) {
+        html += '<div class="section">';
+        html += '<div class="section-title">3. Máximo de aproveitamento possível</div>';
+        html += `<div class="big-time warning">${data.maxExit.time}</div>`;
+        html += `<div class="detail">Total da jornada: ${formatMinutes(data.maxExit.totalMinutes)}.`;
+        const limitText = {
+          cap: 'Limitado pelo teto de 10h48 do dia.',
+          window: 'Limitado pela janela de trabalho (22:00).',
+          periods: 'Limitado pelo máximo de 3 períodos de 6h corridas.',
+        };
+        html += `<br><span class="muted">${limitText[data.maxExit.limitedBy] ?? ''}</span>`;
+        html += '</div>';
+        html += '</div>';
+      }
+
+      $('content').innerHTML = html;
+    }
+
+    async function refresh() {
+      try {
+        render(await window.ponto.getCltScenarios());
+      } catch (error) {
+        $('content').innerHTML = `<div class="empty">Erro ao calcular: ${error.message}</div>`;
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 30_000);
+  </script>
+</body>
+</html>

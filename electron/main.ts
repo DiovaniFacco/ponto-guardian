@@ -7,7 +7,8 @@ import { promisify } from 'util';
 import { ClockInPayload, SecullumSession, createClockIn, getClockInMetadata, login } from '../src/services/secullum.service.js';
 import { SyncService } from '../src/services/sync.service.js';
 import { getPunchesForDate } from '../src/db/database.js';
-import { buildSummary, formatMinutes, parseHHMM } from '../src/services/workday.service.js';
+import { buildSummary, formatHHMM, formatMinutes, parseHHMM } from '../src/services/workday.service.js';
+import { calculateCltScenarios, MAX_CONTINUOUS_MINUTES, MAX_DAILY_MINUTES, WINDOW_END_MINUTES } from '../src/services/clt-scenarios.service.js';
 import { getSettings, saveSettings, getDailyMinutes, settingsExist } from '../src/config/settings.js';
 import { Punch } from '../src/models/punch.model.js';
 
@@ -73,6 +74,7 @@ function setAutostart(enabled: boolean): void {
 
 let widget: BrowserWindow | null = null;
 let settingsWin: BrowserWindow | null = null;
+let simulationWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let syncService: SyncService | null = null;
 let currentSession: SecullumSession | null = null;
@@ -588,6 +590,27 @@ function openSettingsWindow(): void {
   settingsWin.on('closed', () => { settingsWin = null; });
 }
 
+function openSimulationWindow(): void {
+  if (simulationWin && !simulationWin.isDestroyed()) {
+    simulationWin.focus();
+    return;
+  }
+  simulationWin = new BrowserWindow({
+    width: 520,
+    height: 680,
+    resizable: false,
+    title: 'Simulação de jornada - Ponto Guardian',
+    icon: appIcon(),
+    webPreferences: {
+      preload: join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  simulationWin.loadFile(join(__dirname, 'renderer', 'simulation.html'));
+  simulationWin.on('closed', () => { simulationWin = null; });
+}
+
 function createTray(): void {
   const iconPath = join(process.resourcesPath, 'icon.png');
   const icon = existsSync(iconPath)
@@ -608,6 +631,10 @@ function createTray(): void {
           await syncService?.syncNow();
           pushUpdate();
         },
+      },
+      {
+        label: 'Simular jornada',
+        click: openSimulationWindow,
       },
       {
         label: 'Configurações',
@@ -632,6 +659,20 @@ function createTray(): void {
 ipcMain.handle('get-summary', () => getSummaryPayload());
 
 ipcMain.handle('get-settings', () => getSettings());
+
+ipcMain.handle('get-clt-scenarios', () => {
+  const date = getTodayKey();
+  const punches = getPunchesForDate(date);
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const yesterdayLastExit = [...getPunchesForDate(yesterday)].reverse().find((p) => p.type === 'EXIT')?.time ?? null;
+  const dailyMinutes = getDailyMinutes();
+  return {
+    dailyMinutes,
+    ...calculateCltScenarios(punches, dailyMinutes, new Date(), yesterdayLastExit),
+  };
+});
+
+ipcMain.on('open-simulation', openSimulationWindow);
 
 ipcMain.handle('get-system-position', async () => {
   try {
@@ -816,6 +857,40 @@ app.whenReady().then(async () => {
             );
           }
         }
+      }
+
+      // CLT: aviso de 6h corridas no período atual
+      if (summary.isOpen) {
+        const sorted = [...allPunches].sort((a, b) => a.time.localeCompare(b.time));
+        const lastEntryMin = parseHHMM(sorted[sorted.length - 1].time);
+        if (lastEntryMin !== null) {
+          const limitAt = lastEntryMin + MAX_CONTINUOUS_MINUTES;
+          const untilLimit = limitAt - nowMin;
+          if (untilLimit > 0 && untilLimit <= 15 && !notifiedThresholds.has('clt_6h_warning')) {
+            notifiedThresholds.add('clt_6h_warning');
+            sendNotification(
+              'Ponto Guardian',
+              `Seu período atual atinge 6h corridas às ${formatHHMM(limitAt)}. Programe um intervalo.`,
+            );
+          }
+          if (untilLimit <= 0 && !notifiedThresholds.has('clt_6h_limit')) {
+            notifiedThresholds.add('clt_6h_limit');
+            sendNotification(
+              'Ponto Guardian',
+              'Seu período atual passou de 6h corridas. Faça um intervalo antes de continuar.',
+            );
+          }
+        }
+      }
+
+      // CLT: teto diário de 10h48 e janela das 22:00
+      if (summary.workedMinutes >= MAX_DAILY_MINUTES && !notifiedThresholds.has('clt_daily_cap')) {
+        notifiedThresholds.add('clt_daily_cap');
+        sendNotification('Ponto Guardian', 'Você atingiu o teto de 10h48 do dia. Bata a saída.');
+      }
+      if (summary.isOpen && nowMin >= WINDOW_END_MINUTES && !notifiedThresholds.has('clt_window_end')) {
+        notifiedThresholds.add('clt_window_end');
+        sendNotification('Ponto Guardian', 'A janela de trabalho encerra às 22:00. Bata a saída.');
       }
     }
 

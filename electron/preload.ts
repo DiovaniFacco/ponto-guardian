@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('ponto', {
   hide: () => ipcRenderer.send('hide-widget'),
   openSettings: () => ipcRenderer.send('open-settings'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
+  getCltScenarios: () => ipcRenderer.invoke('get-clt-scenarios'),
+  openSimulation: () => ipcRenderer.send('open-simulation'),
   captureBrowserPosition: () => ipcRenderer.invoke('capture-browser-position'),
   getSystemPosition: () => ipcRenderer.invoke('get-system-position'),
   getApproximatePosition: () => ipcRenderer.invoke('get-approximate-position'),

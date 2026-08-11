@@ -247,6 +247,7 @@
       <span class="title">Ponto Guardian</span>
       <div style="display:flex;gap:4px;-webkit-app-region:no-drag">
         <span class="pin-btn" id="pinBtn" title="Sempre no topo">📌</span>
+        <span class="close-btn" id="simBtn" title="Simular jornada">📊</span>
         <span class="close-btn" id="settingsBtn" title="Configurações">⚙</span>
         <span class="close-btn" id="closeBtn" title="Ocultar">×</span>
       </div>
@@ -290,6 +291,7 @@
 
     $('closeBtn').addEventListener('click', () => window.ponto.hide());
     $('settingsBtn').addEventListener('click', () => window.ponto.openSettings());
+    $('simBtn').addEventListener('click', () => window.ponto.openSimulation());
 
     async function syncPinState() {
       const pinned = await window.ponto.getAlwaysOnTop();
