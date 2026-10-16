@@ -1,202 +1,229 @@
-# Ponto guardian
+<div align="center">
 
-Aplicativo do ponto integrado ao Secullum Ponto Web.
+# ⏱️ Ponto Guardian
 
-O app monitora a jornada, mostra notificações e pode bater ponto pelo widget usando o identificador do dispositivo e a localização salva no navegador.
+**Your workday, watched over.**
 
-## Instalação/Atualização rápida
+A tiny desktop app that keeps an eye on your working hours, taps you on the shoulder at the right moment, and punches your **Secullum Ponto Web** clock for you.
 
-<details>
+[![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)](#)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](#)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](#)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)](#)
+[![Platform](https://img.shields.io/badge/Linux%20%7C%20Windows-555555)](#)
+
+</div>
+
+---
+
+## 💡 The idea
+
+Nobody enjoys doing mental math at 5 p.m. to figure out whether they've already worked their hours. **Ponto Guardian** does it for you.
+
+It sits in your system tray, follows your workday in the background, tells you when it's time to clock in, reminds you when your break is due, and warns you when you're about to work past your load. If you want, it even **registers the punch** on Secullum for you — straight from the widget, no browser needed.
+
+It runs as a single portable binary: **no install, no admin rights, no dependencies.**
+
+## ✨ What it does
+
+- 🖥️ **Lives in the tray** — Linux (`.AppImage`) and Windows (`.exe portable`), starting with your session if you want.
+- 🔄 **Follows the journey in real time** — reads your punches and keeps the current state of the day up to date.
+- 🔔 **Tells you what's next** — smart notifications for clocking in, breaks, lunch, and the end of the day (see the full table below).
+- 👆 **Punches the clock from the widget** — using your device identifier and a saved location, without opening the browser.
+- 🗄️ **Keeps everything local** — settings and history live in a local SQLite database. Nothing is sent anywhere except to the Secullum endpoints it needs.
+- 🔧 **One-time setup** — a single configuration screen with company data, credentials, load, device id and location.
+
+## 🚀 Quick install
+
+<details open>
 <summary><strong>Linux</strong></summary>
 
-### Como configurar no Linux
+### Install
 
-Execute no terminal:
+Run in a terminal:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/diovani-f/ponto-guardian/master/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/DiovaniFacco/ponto-guardian/master/install.sh)
 ```
 
-Após executar o comando, o sistema abrirá para preencher as configurações do ponto.
+The script **downloads the latest `.AppImage`**, installs the `ponto` command, and launches the app.
 
-O script:
-
-- **Baixa o app:** pega o `.AppImage` da última release.
-- **Instala o comando:** cria o comando `ponto`.
-- **Abre o aplicativo:** inicia o Ponto Guardian ao final.
-
-### Como abrir novamente
-
-Se fechar o aplicativo e quiser abrir de novo, execute:
+### Open it again later
 
 ```bash
 ponto
 ```
 
-<img width="3061" height="950" alt="image" src="https://github.com/user-attachments/assets/d1bc236e-9855-4923-9621-e5df88a0b703" />
-
+<img src="https://github.com/user-attachments/assets/d1bc236e-9855-4923-9621-e5df88a0b703" />
 
 </details>
 
 <details>
 <summary><strong>Windows</strong></summary>
 
-### Como configurar no Windows
+### Install
 
-Abra o PowerShell e execute:
+Open PowerShell and paste:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -NoProfile -Command "iwr https://raw.githubusercontent.com/diovani-f/ponto-guardian/master/install.ps1 -UseB | iex"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "iwr https://raw.githubusercontent.com/DiovaniFacco/ponto-guardian/master/install.ps1 -UseB | iex"
 ```
-<img width="1600" height="641" alt="WhatsApp Image 2026-06-19 at 16 26 35" src="https://github.com/user-attachments/assets/d6a0edae-7b62-4188-bbc2-bbf31d857d62" />
 
-Após a execução, o sistema abrirá para preencher as configurações do ponto.
+<img src="https://github.com/user-attachments/assets/d6a0edae-7b62-4188-bbc2-bbf31d857d62" />
 
-O script:
+The script **downloads the portable `.exe`**, installs it under `%LOCALAPPDATA%\PontoGuardian\`, and opens the app.
 
-- **Baixa o app:** pega o `.exe portable` da última release.
-- **Instala localmente:** salva em `%LOCALAPPDATA%\PontoGuardian\Ponto Guardian.exe`.
-- **Abre o aplicativo:** inicia o Ponto Guardian ao final.
-
-### Criar atalho na área de trabalho
-
-Cole isso no PowerShell:
+### Create a desktop shortcut
 
 ```powershell
 $Target="$env:LOCALAPPDATA\PontoGuardian\Ponto Guardian.exe"; $Shortcut="$env:USERPROFILE\Desktop\Ponto Guardian.lnk"; $Shell=New-Object -ComObject WScript.Shell; $Link=$Shell.CreateShortcut($Shortcut); $Link.TargetPath=$Target; $Link.Save()
 ```
-O app fica executando em segundo plano na bandeja do windows:
-<img width="176" height="163" alt="WhatsApp Image 2026-06-19 at 16 26 54" src="https://github.com/user-attachments/assets/c5c5b1ed-01a7-4287-a43a-6ce149017e68" />
 
+The app keeps running in the background, next to the Windows tray:
+
+<img src="https://github.com/user-attachments/assets/c5c5b1ed-01a7-4287-a43a-6ce149017e68" />
 
 </details>
 
-## Configuração do ponto
+## ⚙️ Configure the clock (once)
 
 <details open>
-<summary><strong>Como preencher os dados, precisa fazer uma única vez</strong></summary>
+<summary><strong>How to fill in the settings</strong></summary>
 
-Na primeira abertura, clique na engrenagem do widget e preencha os dados.
+On first launch, click the gear icon on the widget and fill in the fields.
 
-### Dados básicos
+### Basic data
 
-- **ID da empresa:** `18914`
-- **Login:** seu número de folha.
-- **Senha:** sua senha do Secullum.
-- **Carga horária:** sua carga diária, por exemplo `6`.
+- **Company ID:** `18914`
+- **Login:** your payroll number.
+- **Password:** your Secullum password.
+- **Daily load:** your daily hours, e.g. `6`.
 
-### Bater ponto pelo widget
+### Punching from the widget
 
-Para usar o botão de bater ponto pelo widget, ative `Bater ponto pelo widget` e preencha o identificador do dispositivo.
+To use the widget's punch button, enable **Bater ponto pelo widget** and fill in the device identifier.
 
-Como pegar o identificador:
+How to find it:
 
-1. Abra o site do ponto no navegador.
-2. Pressione `F12` ou clique com o botão direito e vá em `Inspecionar`.
-3. Vá na aba `Application`.
-4. Abra `Local storage`.
-5. Copie o valor inteiro da chave `identificacaoNavegador`.
-6. Cole esse valor no campo `Identificador do dispositivo` do Ponto Guardian.
-<img width="6122" height="1276" alt="image" src="https://github.com/user-attachments/assets/bda1c467-42f5-4d0a-a39d-96c65e263414" />
-<img width="1690" height="570" alt="image" src="https://github.com/user-attachments/assets/c63b296e-dad9-436f-9e1d-c2d15e9927ff" />
+1. Open the time-clock website in your browser.
+2. Press `F12` (or right-click → **Inspect**).
+3. Go to the **Application** tab.
+4. Open **Local Storage**.
+5. Copy the full value of the `identificacaoNavegador` key.
+6. Paste it into the **Identificador do dispositivo** field in Ponto Guardian.
 
-### Localização
+<img src="https://github.com/user-attachments/assets/bda1c467-42f5-4d0a-a39d-96c65e263414" />
+<img src="https://github.com/user-attachments/assets/c63b296e-dad9-436f-9e1d-c2d15e9927ff" />
 
-1. Clique no botão `Buscar localização`.
-2. O navegador será aberto.
-3. Clique em `capturar localização`.
-4. Aceite a permissão de localização no navegador.
-5. Volte para o Ponto Guardian.
-6. Clique em `Salvar` nas configurações.
-<img width="3818" height="2088" alt="image" src="https://github.com/user-attachments/assets/3c227380-16ef-43fe-af5f-dfe25a054932" />
+### Location
+
+1. Click **Buscar localização**.
+2. The browser opens — click **capturar localização**.
+3. Accept the location permission.
+4. Go back to Ponto Guardian.
+5. Click **Salvar** in the settings.
+
+<img src="https://github.com/user-attachments/assets/3c227380-16ef-43fe-af5f-dfe25a054932" />
 
 </details>
 
-## Notificações
+## 🔔 Notifications
 
 <details>
-<summary><strong>Quando o app notifica</strong></summary>
+<summary><strong>When the app pings you</strong></summary>
 
-| Notificação | Quando dispara |
+| Notification | When it fires |
 |---|---|
-| Hora de bater o ponto | No horário de entrada configurado, se ainda não há batidas |
-| Nova batida | Sempre que um novo ponto é detectado |
-| Aviso antes do fim | Quando faltam poucos minutos para completar a jornada |
-| Jornada concluída | Quando o tempo trabalhado atinge a carga horária |
-| Hora do almoço | No horário de almoço configurado, se ainda há apenas 1 batida |
-| Hora de voltar | 1 hora após o horário real da 2ª batida |
-| Bata o ponto de saída | A cada 15 minutos após jornada concluída com 3 ou mais batidas |
+| Time to clock in | At your configured start time, if there are no punches yet |
+| New punch | Whenever a new punch is detected |
+| Heads-up before the end | A few minutes before you complete your hours |
+| Workday complete | When worked time reaches your daily load |
+| Lunch time | At your configured lunch time, if there's still only one punch |
+| Time to come back | One hour after the real time of the 2nd punch |
+| Punch out | Every 15 minutes after the day is complete, with 3+ punches |
 
 </details>
 
-## Cuidados importantes
+## ⚠️ Important care
 
 <details>
-<summary><strong>Antes de bater ponto pelo widget</strong></summary>
+<summary><strong>Before punching from the widget</strong></summary>
 
-O botão de bater ponto faz um registro real no Secullum.
+The punch button makes a **real record in Secullum**.
 
-Antes de usar, confirme que:
+Before using it, make sure:
 
-- **Login e senha:** estão corretos.
-- **ID da empresa:** está como `18914`.
-- **Identificador do dispositivo:** foi copiado do seu próprio navegador.
-- **Localização:** foi capturada e salva.
+- **Login and password** are correct.
+- **Company ID** is set to `18914`.
+- **Device identifier** was copied from **your own** browser.
+- **Location** was captured and saved.
 
-Não use o identificador de dispositivo de outra pessoa.
+Do not use someone else's device identifier.
 
 </details>
 
-## Para desenvolvedores
+## 🛠️ For developers
 
 <details>
-<summary><strong>Setup local</strong></summary>
+<summary><strong>Local setup</strong></summary>
 
-### Pré-requisitos
+### Requirements
 
 - Node.js 20+
 - npm
 
-### Instalar dependências
+### Install dependencies
 
 ```bash
 npm install
 ```
 
-### Rodar em desenvolvimento
+### Run in development
 
 ```bash
 npm run electron
 ```
 
-### Gerar builds locais
+### Build locally
 
 ```bash
 npm run dist:linux
 npm run dist:win
 ```
 
-Use `npm run dist:win` preferencialmente em uma máquina Windows para garantir binários nativos corretos de `better-sqlite3`.
+Prefer running `npm run dist:win` on a Windows machine so the native `better-sqlite3` binaries match the target platform.
 
 </details>
 
 <details>
-<summary><strong>Publicar release</strong></summary>
+<summary><strong>Publishing a release</strong></summary>
 
-O projeto gera os artefatos automaticamente no GitHub Actions quando uma tag `v*` é enviada.
-
-Exemplo:
+Artifacts are built automatically by GitHub Actions whenever a `v*` tag is pushed:
 
 ```bash
 git tag v2
 git push origin v2
 ```
 
-Depois que a action terminar, a release terá:
+The release then contains:
 
 - **Linux:** `.AppImage`
 - **Windows:** `.exe portable`
 
-Colegas podem instalar usando apenas os comandos da seção `Instalação rápida`, sem Git e sem Node.js.
+Colleagues can install with just the **Quick install** commands — no Git, no Node.js.
 
 </details>
+
+## 🧱 Under the hood
+
+| Layer | Choice |
+| --- | --- |
+| Desktop shell | Electron |
+| Language | TypeScript |
+| Local storage | SQLite (`better-sqlite3`) |
+| Integration | Secullum Ponto Web |
+| Packaging | electron-builder (`AppImage` / portable `.exe`) |
+
+## 👤 Author
+
+**Diovani Facco** — [LinkedIn](https://www.linkedin.com/in/diovani-facco-3a247b11a/) · [diovanifacco@gmail.com](mailto:diovanifacco@gmail.com)
